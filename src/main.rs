@@ -1,8 +1,7 @@
-use dancing_link_x::DLX;
 use sudoku::Sudoku;
 
-mod sudoku;
 mod dancing_link_x;
+mod sudoku;
 
 fn main() {
     let input: [[u8; 9]; 9] = [
@@ -20,7 +19,4 @@ fn main() {
     let mut sudoku = Sudoku::init(input);
     sudoku.resolve();
     sudoku.output();
-
-    // let dlx: DLX<u32> = DLX::new(2, 2);
-    // dlx.print()
 }

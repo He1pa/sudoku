@@ -40,10 +40,69 @@ impl Sudoku {
     }
 
     pub fn resolve(&mut self) {
-        let dlx = self.dlx();
-        dlx.print()
+        let mut dlx = self.dlx();
+        let mut res = vec![];
+        dlx.solve(&mut res);
+        res.sort();
+        let mut line = 0;
+        for (i, r) in res.iter().enumerate() {
+            let l = i / 9;
+            let c = i % 9;
+            let node = self.get_mut(l, c);
+            if node.res == 0 {
+                node.res = (r - line + 1) as u8;
+                line += 9
+            } else {
+                line += 1
+            }
+        }
+        println!("{:?}", res);
     }
 
+    pub fn get(&self, l: usize, c: usize) -> Node {
+        self.res.get(l).unwrap().get(c).unwrap().clone()
+    }
+
+    pub fn get_mut(&mut self, l: usize, c: usize) -> &mut Node {
+        self.res.get_mut(l).unwrap().get_mut(c).unwrap()
+    }
+
+    pub fn dlx(&self) -> DLX<u8> {
+        let mut dlx: DLX<u8> = DLX::new(9 * 9 * 4);
+        let mut line = 0;
+        for l in 0..9 {
+            for c in 0..9 {
+                let node = self.get(l, c);
+                if node.res == 0 {
+                    for n in 1..10 {
+                        let first_dlx_col = l * 9 + c; // [0, 81) position in sudoku
+                        let second_dlx_col = 80 + l * 9 + n; // [81, 162) which num in each line
+                        let third_dlx_col = 161 + c * 9 + n; // [162, 243) which num in each col
+                        let forth_dlx_col = 242 + (l - l % 3 + c / 3) * 9 + n; // [243, 324) which num in each squa
+
+                        let node1 = dlx.add_node(1, line, first_dlx_col, None, None);
+                        let node2 = dlx.add_node(1, line, second_dlx_col, Some(node1), Some(node1));
+                        let node3 = dlx.add_node(1, line, third_dlx_col, Some(node2), Some(node1));
+                        let _ = dlx.add_node(1, line, forth_dlx_col, Some(node3), Some(node1));
+                        line += 1;
+                    }
+                } else {
+                    let n = node.res as usize;
+                    let first_dlx_col = l * 9 + c; // [0, 81) position in sudoku
+                    let second_dlx_col = 80 + l * 9 + n; // [81, 162) which num in each line
+                    let third_dlx_col = 161 + c * 9 + n; // [162, 243) which num in each col
+                    let forth_dlx_col = 242 + (l - l % 3 + c / 3) * 9 + n; // [243, 324) which num in each squa
+
+                    let node1 = dlx.add_node(1, line, first_dlx_col, None, None);
+                    let node2 = dlx.add_node(1, line, second_dlx_col, Some(node1), Some(node1));
+                    let node3 = dlx.add_node(1, line, third_dlx_col, Some(node2), Some(node1));
+                    let _ = dlx.add_node(1, line, forth_dlx_col, Some(node3), Some(node1));
+                    line += 1;
+                }
+            }
+        }
+        dlx
+    }
 
     pub fn output(&self) {
         for (i, l) in self.res.iter().enumerate() {
@@ -60,111 +119,5 @@ impl Sudoku {
             println!("|");
         }
         println!("------------------");
-
-    }
-
-    pub fn get_line(&self, l: usize) -> Vec<Node> {
-        self.res.get(l).unwrap().clone()
-    }
-
-    pub fn get_col(&self, c: usize) -> Vec<Node> {
-        let mut col = vec![];
-        for i in 0..9 {
-            col.push(self.get(i, c))
-        }
-        col
-    }
-
-    pub fn get_squa(&self, i: usize) -> Vec<Node> {
-        let l = i - i % 3;
-        let c = 3 * (i % 3);
-        let mut squa = vec![];
-        for i in 0..3 {
-            for j in 0..3 {
-                squa.push(self.get(l + i, c + j))
-            }
-        }
-        squa
-    }
-
-    pub fn get(&self, l: usize, c: usize) -> Node {
-        self.res.get(l).unwrap().get(c).unwrap().clone()
-    }
-
-    pub fn get_mut(&mut self, l: usize, c: usize) -> &mut Node {
-        self.res.get_mut(l).unwrap().get_mut(c).unwrap()
-    }
-
-    pub fn set(&mut self, l: usize, c: usize, n: u8) {
-        self.res.get_mut(l).unwrap().get_mut(c).unwrap().res = n;
-    }
-
-    pub fn check(&self) -> bool {
-        for i in 0..9 {
-            let line = self.get_line(i);
-            let mut l_sum = 0;
-            line.iter().for_each(|node| l_sum += node.res);
-
-            let col = self.get_col(i);
-            let mut c_sum = 0;
-            col.iter().for_each(|node| c_sum += node.res);
-
-            let squa = self.get_squa(i);
-            let mut squa_sum = 0;
-            squa.iter().for_each(|node| squa_sum += node.res);
-
-            if l_sum != 45 || c_sum != 45 || squa_sum != 45 {
-                return false;
-            }
-        }
-        true
-    }
-
-    pub fn dlx(&self) -> DLX<u8> {
-        let mut dlx_len = 0;
-
-        for l in 0..9 {
-            for c in 0..9 {
-                if self.get(l, c).res == 0 {
-                    dlx_len += 9;
-                } else {
-                    dlx_len += 1;
-                }
-            }
-        }
-
-        let mut dlx: DLX<u8> = DLX::new(dlx_len, 9 * 9 * 4);
-        let mut line = 0;
-        for l in 0..9 {
-            for c in 0..9 {
-                let node = self.get(l, c);
-                if node.res == 0 {
-                    for n in 1..10 {
-                        let first_dlx_col = l * 9 + c; // [0, 81) position in sudoku
-                        let second_dlx_col = 80 + l * 9 + n; // [81, 162) which num in each line
-                        let third_dlx_col = 161 + c * 9 + n; // [162, 243) which num in each col
-                        let forth_dlx_col = 242 + (l - l % 3 + c / 3) * 9 + n; // [243, 324) which num in each squa
-                        dlx.add_node(1, line, first_dlx_col);
-                        dlx.add_node(1, line, second_dlx_col);
-                        dlx.add_node(1, line, third_dlx_col);
-                        dlx.add_node(1, line, forth_dlx_col);
-                        line += 1;
-                    }
-                } else {
-                    let n = node.res as usize;
-                    let first_dlx_col = l * 9 + c; // [0, 81) position in sudoku
-                    let second_dlx_col = 80 + l * 9 + n; // [81, 162) which num in each line
-                    let third_dlx_col = 161 + c * 9 + n; // [162, 243) which num in each col
-                    let forth_dlx_col = 242 + (l - l % 3 + c / 3) * 9 + n; // [243, 324) which num in each squa
-                    dlx.add_node(1, line, first_dlx_col);
-                    dlx.add_node(1, line, second_dlx_col);
-                    dlx.add_node(1, line, third_dlx_col);
-                    dlx.add_node(1, line, forth_dlx_col);
-                    line += 1;
-                }
-
-            }
-        }
-        dlx
     }
 }
